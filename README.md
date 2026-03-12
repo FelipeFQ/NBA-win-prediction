@@ -1,4 +1,4 @@
-# NBA Game Outcome Prediction — End-to-End Data Science Pipeline
+# 🏀 NBA Game Outcome Prediction — End-to-End Data Science Pipeline
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-orange?logo=jupyter&logoColor=white)
@@ -9,13 +9,13 @@ An end-to-end pipeline for predicting NBA game outcomes before tip-off. The focu
 
 ---
 
-## Objective
+## 🎯 Objective
 
 Predict `home_win` (1 = home team wins, 0 = away team wins) before tip-off, using historical performance features derived exclusively from prior games. All features are built using only data available before the game starts — no peeking at the game being predicted. Each notebook validates its own output before the next one reads it.
 
 ---
 
-## Tech Stack
+## ⚙️ Tech Stack
 
 | Layer | Tools |
 |-------|-------|
@@ -28,7 +28,7 @@ Predict `home_win` (1 = home team wins, 0 = away team wins) before tip-off, usin
 
 ---
 
-## Pipeline Overview
+## 🔄 Pipeline Overview
 
 ```
 Data_raw/  (CSV source files — never modified)
@@ -74,7 +74,7 @@ Data_raw/  (CSV source files — never modified)
 
 ---
 
-## Repository Structure
+## 📂 Repository Structure
 
 ```
 NBA/
@@ -101,15 +101,14 @@ NBA/
 
 ---
 
-## Completed Notebooks
+## 📓 Completed Notebooks
 
-### 01 — Data Cleaning
+### 🧹 01 — Data Cleaning
 
 **Goal:** Transform raw CSVs into clean, typed, validated Parquet files ready for feature engineering.
 
-**Inputs:** `Games.csv`, `TeamStatistics.csv`, `PlayerStatisticsAdvanced.csv`, `PlayerStatisticsScoring.csv`
-
-**Outputs:**
+- **Inputs:** `Games.csv`, `TeamStatistics.csv`, `PlayerStatisticsAdvanced.csv`, `PlayerStatisticsScoring.csv`
+- **Output:** 4 Parquet files — one per source table
 
 | File | Rows | Cols | Primary Key |
 |------|------|------|-------------|
@@ -118,30 +117,28 @@ NBA/
 | `player_stats_advanced_clean.parquet` | 53,113 | 25 | `(game_id, person_id)` |
 | `player_stats_scoring_clean.parquet` | 53,113 | 20 | `(game_id, person_id)` |
 
-**Key engineering decisions:**
+**Key decisions:**
 
-- **Scope filter:** seasons 2017–2026 only (`SEASON_CUTOFF = 2017`), applied to games first and cascaded to all child tables via FK.
-- **`season_end_year`:** derived from `game_id` using the NBA's internal encoding (`2000 + int(game_id[1:3]) + 1`), not from the calendar year.
-- **`is_overtime`:** computed from quarter scores in `team_stats` (team score > sum of Q1–Q4), then propagated to `games` via groupby merge.
-- **Nullable integers:** pandas `Int16` / `Int32` (capital I) used for columns with legitimate NaN (e.g. `turnovers`, `attendance`) so that missing values are not silently cast to 0.
-- **Outlier handling:** `efg_pct` and `ts_pct` values > 1.5 set to NaN (not clipped) — preserving honest data quality over silent masking.
+- **Scope filter:** seasons 2017–2026 only, applied to games first and cascaded to all child tables via FK.
+- **`season_end_year`:** derived from `game_id` using the NBA's internal encoding, not from the calendar year.
+- **`is_overtime`:** computed from quarter scores in `team_stats`, then propagated to `games`.
+- **Nullable integers:** pandas `Int16` / `Int32` for columns with legitimate NaN (e.g. `turnovers`, `attendance`).
+- **Outlier handling:** `efg_pct` and `ts_pct` values > 1.5 set to NaN — not clipped.
 - **Validation:** PK uniqueness and FK coverage asserted at 100% for all four output tables.
 
 ---
 
-### 02 — Feature Engineering
+### 🔧 02 — Feature Engineering
 
 **Goal:** Build a game-level feature matrix for predicting `home_win`, using only information available before tip-off.
 
-**Inputs:** `games_clean.parquet` + `team_stats_clean.parquet`
+- **Inputs:** `games_clean.parquet` + `team_stats_clean.parquet`
+- **Output:** `game_features.parquet` — 13,151 rows × 60 columns
+- **Target variable:** `home_win` — 56.1% home wins, 43.9% away wins
 
-**Output:** `game_features.parquet` — 13,151 rows × 60 columns
+#### Anti-Leakage Pattern
 
-**Target variable:** `home_win` — 56.1% positive class (home team wins), 43.9% negative.
-
-#### Anti-Leakage Architecture
-
-Every rolling feature follows the **shift-then-roll** pattern:
+Every rolling feature follows the **shift-then-roll** approach:
 
 ```python
 x.shift(1).rolling(window=10, min_periods=3).mean()
@@ -150,31 +147,31 @@ x.shift(1).rolling(window=10, min_periods=3).mean()
 # result    → rolling mean of the N games that occurred BEFORE this game
 ```
 
-Rolling groups are defined as `(team_id, season_end_year)` — resetting at each new season prevents end-of-season playoff form from contaminating the following year's early games.
+Rolling groups are defined as `(team_id, season_end_year)` — resetting at each new season prevents end-of-season form from contaminating the following year's early games.
 
 #### Feature Groups
 
 | Group | # Columns | Features |
 |-------|-----------|---------|
-| Schedule context | 6 | `rest_days`, `is_back_to_back`, `games_last_7d` — for home and away |
-| Season context | 6 | `pre_game_wins`, `pre_game_losses`, `season_win_pct` — for home and away |
-| Rolling 10-game overall | 20 | `roll_win_pct`, `roll_pts_scored`, `roll_pts_allowed`, `roll_pt_diff`, `roll_efg_pct`, `roll_fg3_pct`, `roll_ft_rate`, `roll_reb_total`, `roll_assist_pct`, `roll_tov_per_game` — for home and away |
-| Rolling location splits | 4 | `split_roll_win_pct`, `split_roll_pt_diff` — rolling computed only on same-location games |
-| Head-to-head history | 2 | `h2h_games_prior`, `h2h_home_win_pct` — cumulative prior H2H results |
-| Differentials | 14 | `diff_*` columns — home minus away for all key metrics |
+| 📅 Schedule context | 6 | `rest_days`, `is_back_to_back`, `games_last_7d` — home and away |
+| 🏆 Season context | 6 | `pre_game_wins`, `pre_game_losses`, `season_win_pct` — home and away |
+| 📈 Rolling 10-game overall | 20 | win%, pts scored/allowed, pt diff, eFG%, FG3%, FT rate, rebounds, assist%, turnovers |
+| 🏠 Rolling location splits | 4 | `split_roll_win_pct`, `split_roll_pt_diff` — same-location games only |
+| ⚔️ Head-to-head history | 2 | `h2h_games_prior`, `h2h_home_win_pct` |
+| ➕ Differentials | 14 | `diff_*` — home minus away for all key metrics |
 
-> All feature columns appear twice in the matrix: once prefixed `home_` (home team's perspective) and once `away_` (away team's perspective). Differential columns (`diff_*`) represent `home_X − away_X`, making the advantage direction explicit for linear models.
+> All feature columns appear twice: once prefixed `home_` and once `away_`. Differential columns (`diff_*`) represent `home_X − away_X`, making the advantage direction explicit.
 
 ---
 
-## Key Findings (as of Notebook 02)
+## 📊 Key Findings (as of Notebook 02)
 
 | Metric | Value |
 |--------|-------|
-| Home court advantage | 56.1% of games won by the home team |
-| Back-to-back game rate | 38.9% of team-game rows |
-| Max H2H games between same pair | 33 (over 9 seasons) |
-| Strongest single predictor | `diff_split_pt_diff` (r = 0.271) |
+| 🏠 Home court advantage | 56.1% of games won by the home team |
+| 😓 Back-to-back game rate | 38.9% of team-game rows |
+| ⚔️ Max H2H games between same pair | 33 (over 9 seasons) |
+| 🥇 Strongest single predictor | `diff_split_pt_diff` (r = 0.271) |
 
 **Top 5 feature correlations with `home_win`** (Pearson absolute value):
 
@@ -190,7 +187,7 @@ diff_win_pct          0.244   ← overall rolling win%
 
 ---
 
-## Project Roadmap
+## 🗺️ Project Roadmap
 
 | # | Notebook | Status | Output |
 |---|----------|--------|--------|
@@ -205,21 +202,25 @@ diff_win_pct          0.244   ← overall rolling win%
 
 ---
 
-## How to Run
+## 🚀 How to Run
 
 > **Note:** Raw data files (`Data_raw/`) are not included in this repository due to file size. The processed Parquet files in `Data_processed/` are committed and can be used directly starting from Notebook 02.
 
+**1. Clone the repository**
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd NBA
+git clone https://github.com/FelipeFQ/NBA-win-prediction.git
+cd NBA-win-prediction
+```
 
-# Install dependencies
+**2. Install dependencies**
+```bash
 pip install pandas numpy pyarrow jupyter
+```
 
-# Run notebooks in order
+**3. Run notebooks in order**
+```bash
 jupyter notebook Notebooks/01_data_Cleaning.ipynb
 jupyter notebook Notebooks/02_feature_engineering.ipynb
 ```
 
-Each notebook is self-contained and saves its output to `Data_processed/` before the next notebook reads it.
+Each notebook is self-contained and saves its output to `Data_processed/` before the next one reads it.
